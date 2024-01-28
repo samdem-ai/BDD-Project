@@ -1,0 +1,251 @@
+const express = require("express")
+const app = express()
+const jwt = require("jsonwebtoken")
+const bcrypt = require('bcryptjs')
+const mysql = require("mysql2")
+const dotenv = require("dotenv")
+dotenv.config() 
+const pool = mysql.createPool({
+    host:process.env.mysql_host,
+    user:process.env.mysql_user,
+    password:process.env.mysql_password,
+    database:process.env.mysql_database
+ }).promise()
+
+module.exports.isCompany = async(req,res,next)=>{
+    
+    const token = req.cookies.jwt
+    if(!token) {       
+        return res.status(200).json({access:false,message:"not loged in"})
+     }
+    jwt.verify(token,process.env.token,(err,user)=>{
+        if(err) return res.sendStatus(403)
+        if(user.type ==="company"){
+            
+            req.user = user;
+            next()
+        }else{
+            res.json({access:false,message:"sorry you are not a company"})
+            console.log("not a company")
+        }
+       
+         
+    })
+}
+
+module.exports.isUser = async(req,res,next)=>{
+    
+    const token = req.cookies.jwt
+    if(!token) {       
+        return res.status(200).json({access:false,message:"not loged in"})
+     }
+    jwt.verify(token,process.env.token,(err,user)=>{
+        if(err) return res.sendStatus(403)
+        if(user.type ==="user"){
+            
+            req.user = user;
+            next()
+        }else{
+            res.json({access:false,message:"sorry you are not a user"})
+            console.log("not a user")
+        }
+       
+         
+    })
+}
+
+module.exports.createjob = async(description,skills,company_id) =>{
+    const result = await pool.query(`
+    insert into jobs (description,company_id,skills)
+    values (?,?,?);
+    `,[description,company_id,skills])
+   
+    return result
+}
+
+module.exports.createApplication = async(user_id,job_id,skills,ldm) =>{
+    
+    const [result] = await pool.query(`
+    insert into applications (user_id,job_id,skills,ldm)
+    values (?,?,?,?);
+    `,[user_id,job_id,skills,ldm])
+    
+
+
+    return result
+}
+
+
+module.exports.getjobs = async() =>{
+    const [jobs] = await pool.query(`
+
+    SELECT j.description as job_description,j.skills as required_skills,u.username as company_name,
+    u.email as company_email
+     from jobs as j join users as u on j.company_id=u.id;
+    
+`)
+ 
+    return jobs
+    
+}
+
+module.exports.getApplications = async(id) =>{
+    const [applications] = await pool.query(`
+
+    SELECT u.username as user_username,
+    u.email as user_email,
+    a.ldm as ldm from applications as a join users as u on a.user_id = u.id join
+    jobs as j on a.job_id = j.id 
+    where j.company_id = ?;
+    
+`,[id])
+ 
+    return applications
+    
+}
+
+module.exports.getAcceptations = async(id) =>{
+    const [acceptations] = await pool.query(`
+
+    select acc.id as acceptaion_id,
+    app.id as application_id,
+    u.username as company_name,
+    u.email as company_email,
+    j.skills as job_skills,
+    j.description as job_description
+    from acceptedApp as acc join applications as app on acc.app_id=app.id join jobs as j on app.job_id = j.id join users as u on j.company_id=u.id
+    where acc.user_id=?;
+`,[id])
+ 
+    return acceptations;
+    
+}
+
+module.exports.getrejects = async(id) =>{
+    const [rejects] = await pool.query(`
+
+    select r.id as reject_id,
+    app.id as application_id,
+    u.username as company_name,
+    u.email as company_email,
+    j.skills as job_skills,
+    j.description as job_description
+    from rejectedApp as r join applications as app on r.app_id=app.id join jobs as j on app.job_id = j.id join users as u on j.company_id=u.id
+    where r.user_id=?;
+`,[id])
+ 
+    return rejects;
+    
+}
+/********************************************************************************************************************************************* */
+module.exports.accept = async(app,company_id) =>{
+
+    const [app_company] =await pool.query(`
+
+        SELECT * from applications as a join jobs as j
+        on a.job_id=j.id  join users as c on j.company_id=c.id
+        where a.id=? ;
+    
+        `,[app]);
+
+    console.log(app_company);
+
+    if(app_company[0].company_id===company_id){
+
+        const [result] = await pool.query(`
+
+        insert into acceptedApp (user_id,app_id) values
+        (?,?);
+    
+        `,[app_company[0].user_id,app])
+
+        return result
+    }else{
+        return "you are not allowed"
+    }
+      
+}
+
+module.exports.reject = async(app,company_id) =>{
+
+    const [app_company] =await pool.query(`
+
+        SELECT * from applications as a join jobs as j
+        on a.job_id=j.id  join users as c on j.company_id=c.id
+        where a.id=? ;
+    
+        `,[app]);
+
+    console.log(app_company);
+
+    if(app_company[0].company_id===company_id){
+
+        const [result] = await pool.query(`
+
+        insert into rejectedApp (user_id,app_id) values
+        (?,?);
+    
+        `,[app_company[0].user_id,app])
+
+        return result
+    }else{
+        return "you are not allowed"
+    }
+      
+}
+
+/*************************************************************** */
+
+module.exports.deleteApp = async(id,company_id) =>{
+
+    const [app_company] =await pool.query(`
+
+        SELECT * from applications as a join jobs as j
+        on a.job_id=j.id  join users as c on j.company_id=c.id
+        where a.id=? ;
+    
+        `,[id]);
+
+    console.log(app_company);
+
+    if(app_company[0].company_id===company_id){
+
+    const [result] = await pool.query(`
+
+    DELETE FROM acceptedApp
+    WHERE id = ?;
+`,[id])
+ 
+    return result;    
+}else{
+
+    return "you are not allowed"
+}}
+
+
+module.exports.deleteJob = async(id,company_id) =>{
+
+    const [job] =await pool.query(`
+
+        SELECT * from jobs
+        where jobs.id=? ;
+    
+        `,[id]);
+
+    
+    if(job[0].company_id===company_id){
+
+    const [result] = await pool.query(`
+
+        DELETE FROM jobs
+        WHERE id = ?;
+    `,[id])
+ 
+    return result;    
+}else{
+    
+    return "you are not allowed"
+}
+
+
+}

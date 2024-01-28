@@ -1,0 +1,19 @@
+
+
+
+
+
+
+
+
+
+POST http://localhost:5000/jobs HTTP/1.1
+content-type: application/json
+Cookie: jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwidXNlcm5hbWUiOiJjZXZpdGFsIiwiZW1haWwiOiJjZXZpdGFsQGdtYWlsLmNvbSIsInBhc3N3b3JkIjoiJDJhJDEwJGtaWmdMMXNId2FrYjRuanBDS2E5cU9jS3piN0M4ckQxdi5UdW9YemJuSmlrODlReU5TcC5LIiwidHlwZSI6ImNvbXBhbnkiLCJpYXQiOjE3MDYyMDc2MzV9._IRJ581uEzQxxpVvDswUGBKwF9NUciJl8OatYK_zc8k
+
+{
+    "skills": "nextjs reactjs nodejs",
+    "description":"you will be the leader of our dev team"
+    
+}
+
